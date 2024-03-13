@@ -6,10 +6,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 )
 
 var templateCache = template.Must(template.ParseFiles("view.html", "edit.html"))
+var validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
 
 type Page struct {
 	Title string
@@ -36,8 +38,18 @@ func loadPage(title string) (*Page, error) {
 	return &Page{Title: title, Body: body}, nil
 }
 
-func viewHandler(responseWriter http.ResponseWriter, request *http.Request) {
-	title := request.URL.Path[len("/view/"):]
+func getTitle(responseWriter http.ResponseWriter, request *http.Request) (string, error) {
+	match := validPath.FindStringSubmatch(request.URL.Path)
+
+	if match == nil {
+		http.NotFound(responseWriter, request)
+		return "", errors.New("Invalid Page Title")
+	}
+
+	return match[2], nil
+}
+
+func viewHandler(responseWriter http.ResponseWriter, request *http.Request, title string) {
 	page, err := loadPage(title)
 
 	if err != nil {
@@ -47,8 +59,7 @@ func viewHandler(responseWriter http.ResponseWriter, request *http.Request) {
 	renderTemplate(responseWriter, "view", page)
 }
 
-func editHandler(responseWriter http.ResponseWriter, request *http.Request) {
-	title := request.URL.Path[len("/edit/"):]
+func editHandler(responseWriter http.ResponseWriter, request *http.Request, title string) {
 	page, err := loadPage(title)
 
 	if err != nil {
@@ -59,15 +70,7 @@ func editHandler(responseWriter http.ResponseWriter, request *http.Request) {
 	renderTemplate(responseWriter, "edit", page)
 }
 
-func saveHandler(responseWriter http.ResponseWriter, request *http.Request) {
-	title := request.URL.Path[len("/save/"):]
-
-	if title == "" {
-		err := errors.New("Invalid form")
-		http.Error(responseWriter, err.Error(), http.StatusBadRequest)
-		return
-	}
-
+func saveHandler(responseWriter http.ResponseWriter, request *http.Request, title string) {
 	request.ParseForm()
 
 	var body string
@@ -138,14 +141,34 @@ func renderTemplate(respWriter http.ResponseWriter, tmpl string, page *Page) {
 	}
 }
 
+func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
+	return func(responseWriter http.ResponseWriter, request *http.Request) {
+		match := validPath.FindStringSubmatch(request.URL.Path)
+
+		if match == nil {
+			http.NotFound(responseWriter, request)
+			return
+		}
+
+		fn(responseWriter, request, match[2])
+	}
+}
+
+func logRequest(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(responseWriter http.ResponseWriter, request *http.Request) {
+		log.Printf("%s %s %s\n", request.RemoteAddr, request.Method, request.URL)
+		handler.ServeHTTP(responseWriter, request)
+	})
+}
+
 func main() {
 	log.SetPrefix("Wiki: ")
 	log.SetFlags(0)
 
 	http.HandleFunc("/index", indexHandler)
-	http.HandleFunc("/view/", viewHandler)
-	http.HandleFunc("/edit/", editHandler)
-	http.HandleFunc("/save/", saveHandler)
+	http.HandleFunc("/view/", makeHandler(viewHandler))
+	http.HandleFunc("/edit/", makeHandler(editHandler))
+	http.HandleFunc("/save/", makeHandler(saveHandler))
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":8080", logRequest(http.DefaultServeMux)))
 }
