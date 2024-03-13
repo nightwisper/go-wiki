@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"html/template"
 	"log"
 	"net/http"
@@ -10,7 +9,10 @@ import (
 	"strings"
 )
 
-var templateCache = template.Must(template.ParseFiles("view.html", "edit.html"))
+var tmplFolder string = "tmpl/"
+var dataFolder string = "./data/"
+
+var templateCache = template.Must(template.ParseFiles(tmplFolder+"view.html", tmplFolder+"edit.html", tmplFolder+"index.html"))
 var validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
 
 type Page struct {
@@ -24,29 +26,18 @@ type Index struct {
 
 func (p *Page) save() error {
 	filename := p.Title + ".txt"
-	return os.WriteFile(filename, p.Body, 0600)
+	return os.WriteFile(dataFolder+filename, p.Body, 0600)
 }
 
 func loadPage(title string) (*Page, error) {
 	filename := title + ".txt"
-	body, err := os.ReadFile(filename)
+	body, err := os.ReadFile(dataFolder + filename)
 
 	if body == nil && err != nil {
 		return nil, err
 	}
 
 	return &Page{Title: title, Body: body}, nil
-}
-
-func getTitle(responseWriter http.ResponseWriter, request *http.Request) (string, error) {
-	match := validPath.FindStringSubmatch(request.URL.Path)
-
-	if match == nil {
-		http.NotFound(responseWriter, request)
-		return "", errors.New("Invalid Page Title")
-	}
-
-	return match[2], nil
 }
 
 func viewHandler(responseWriter http.ResponseWriter, request *http.Request, title string) {
@@ -99,7 +90,7 @@ func saveHandler(responseWriter http.ResponseWriter, request *http.Request, titl
 }
 
 func indexHandler(responseWriter http.ResponseWriter, request *http.Request) {
-	files, err := os.ReadDir("./")
+	files, err := os.ReadDir(dataFolder)
 
 	if err != nil {
 		log.Fatal(err)
@@ -116,16 +107,9 @@ func indexHandler(responseWriter http.ResponseWriter, request *http.Request) {
 		}
 	}
 
-	templ, err := template.ParseFiles("index.html")
-
-	if err != nil {
-		log.Fatal(err)
-		http.Error(responseWriter, err.Error(), http.StatusInternalServerError)
-	}
-
 	idx := &Index{Pages: pages}
 
-	err = templ.Execute(responseWriter, idx)
+	err = templateCache.ExecuteTemplate(responseWriter, "index.html", idx)
 
 	if err != nil {
 		log.Fatal(err)
