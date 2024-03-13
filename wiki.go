@@ -99,6 +99,7 @@ func indexHandler(responseWriter http.ResponseWriter, request *http.Request) {
 	files, err := os.ReadDir("./")
 
 	if err != nil {
+		log.Fatal(err)
 		http.Error(responseWriter, err.Error(), http.StatusInternalServerError)
 	}
 
@@ -112,20 +113,27 @@ func indexHandler(responseWriter http.ResponseWriter, request *http.Request) {
 		}
 	}
 
-	tmpl, err := template.ParseFiles("index.html")
+	templ, err := template.ParseFiles("index.html")
 
 	if err != nil {
+		log.Fatal(err)
 		http.Error(responseWriter, err.Error(), http.StatusInternalServerError)
 	}
 
-	index := &Index{Pages: pages}
+	idx := &Index{Pages: pages}
 
-	tmpl.Execute(responseWriter, index)
+	err = templ.Execute(responseWriter, idx)
+
+	if err != nil {
+		log.Fatal(err)
+		http.Error(responseWriter, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func renderTemplate(respWriter http.ResponseWriter, tmpl string, page *Page) {
 	err := templateCache.ExecuteTemplate(respWriter, tmpl+".html", page)
 	if err != nil {
+		log.Fatal(err)
 		http.Error(respWriter, err.Error(), http.StatusInternalServerError)
 	}
 }

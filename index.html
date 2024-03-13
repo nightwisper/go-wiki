@@ -7,7 +7,20 @@
 <body>
     <h1>Pages</h1>
     <ul>
-        {{range .Items}}<li><a href="/view/{{.}}"</li>{{else}}<li>No Pages</li>
+        {{range .Pages}}<li><a href="/view/{{.}}">{{.}}</a></li>{{else}}<li>No Pages</li>{{end}}
     </ul>
+
+    <form onsubmit="submitForm(); return false;" id="form" >
+        <input type="text" name="title" placeholder="Title">
+        <input type="submit" value="New">
+    </form>
+
+    <script type="text/javascript">
+        function submitForm() {
+            var form = document.getElementById("form");
+            var title = form.title.value;
+            window.location.href = "/edit/" + title;
+        }
+    </script>
 </body>
 </html>

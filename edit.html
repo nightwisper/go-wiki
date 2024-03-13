@@ -6,6 +6,8 @@
     <body>
 
         <h1>Editing {{.Title}}</h1>
+        <a href="/index">Index</a>
+        <a href="/view/{{.Title}}">View</a>
 
         <form action="/save/{{.Title}}">
             <div><textarea name="body" rows="20" cols="80">{{printf "%s" .Body}}</textarea></div>
